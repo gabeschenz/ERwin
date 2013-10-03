@@ -1,0 +1,18 @@
+%If (%TableOwner) {
+CREATE PROJECTION %TableOwner.%TableName_suprtn (}
+%If (%Not(%TableOwner)) {
+CREATE PROJECTION %TableName_suprtn (}
+       %Atts(", ",,    )
+) AS
+SELECT %Atts(", ",,    )
+  %If (%TableOwner) {FROM %TableOwner.%TableName}
+  %If (%Not(%TableOwner)) {FROM %TableName}
+ ORDER BY %PK()
+%Switch (%TableProp(Segmented)) {
+    %Choose(True) {SEGMENTED BY hash(%PK()) ALL NODES;}
+    %Default {UNSEGMENTED ALL NODES;}
+}
+%If (%TableOwner) {
+Grant all privileges on table %TableOwner.%TableName to cdmuser;}
+%If (%Not(%TableOwner)) {
+Grant all privileges on table %TableName to cdmuser;}
