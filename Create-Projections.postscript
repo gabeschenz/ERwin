@@ -1,18 +1,19 @@
 %If (%TableOwner) {
-CREATE PROJECTION %TableOwner.%TableName_suprtn (}
-%If (%Not(%TableOwner)) {
-CREATE PROJECTION %TableName_suprtn (}
+grant all privileges on table %TableOwner.%TableName to X;
+create projection %TableOwner.%TableName_suprj (
        %Atts(", ",,    )
-) AS
-SELECT %Atts(", ",,    )
-  %If (%TableOwner) {FROM %TableOwner.%TableName}
-  %If (%Not(%TableOwner)) {FROM %TableName}
- ORDER BY %PK()
+)   as
+select %Atts(", ",,    )
+  from %TableOwner.%TableName
+} %If (%Not(%TableOwner)) {
+grant all privileges on table %TableName to X;
+create projection %TableName_suprj (
+       %Atts(", ",,    )
+)   as
+select %Atts(", ",,    )
+  from %TableName
+}%If (%PK()){order by %PK(",")}%If (%Not(%PK())){order by 1}
 %Switch (%TableProp(Segmented)) {
-    %Choose(True) {SEGMENTED BY hash(%PK()) ALL NODES;}
-    %Default {UNSEGMENTED ALL NODES;}
+    %Choose(True) {segmented by modularhash(%PK(",")) all nodes;}
+    %Default {unsegmented all nodes;}
 }
-%If (%TableOwner) {
-Grant all privileges on table %TableOwner.%TableName to cdmuser;}
-%If (%Not(%TableOwner)) {
-Grant all privileges on table %TableName to cdmuser;}

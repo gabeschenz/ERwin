@@ -1,0 +1,6 @@
+%ForEachTable() {
+%If (%TableOwner) {
+DROP TABLE IF EXISTS %TableOwner.%TableName CASCADE;}
+%If (%Not(%TableOwner)) {
+DROP TABLE IF EXISTS %TableName CASCADE;}
+}
