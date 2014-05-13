@@ -1,0 +1,73 @@
+%Decl(day, 1)
+%Decl(month, 1)
+%Decl(year, 1)
+%Decl(datestring)
+%Decl(bkp_dt, %Substitute(%Substitute(%Substitute(%Datetime,":", "_"),", ", "_")," ", "_"))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Sunday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Monday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Tuesday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Wednesday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Thursday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Friday_",""))
+%=(bkp_dt,%Substitute(%:bkp_dt,"Saturday_",""))
+%If(%==(%Substr(%:bkp_dt,1,3),Jan)) { 
+	%=(month, 01)
+	%=(day, %Substr(%:bkp_dt,9,2))
+	%=(year, %Substr(%:bkp_dt,12,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Feb)) { 
+	%=(month, 02)
+	%=(day, %Substr(%:bkp_dt,10,2))
+	%=(year, %Substr(%:bkp_dt,13,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Mar)) {
+	%=(month, 03)
+	%=(day, %Substr(%:bkp_dt,7,2))
+	%=(year, %Substr(%:bkp_dt,10,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Apr)) {
+	%=(month, 04)
+	%=(day, %Substr(%:bkp_dt,7,2))
+	%=(year, %Substr(%:bkp_dt,10,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),May)) {
+	%=(month, 05)
+	%=(day, %Substr(%:bkp_dt,5,2))
+	%=(year, %Substr(%:bkp_dt,8,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Jun)) {
+	%=(month, 06)
+	%=(day, %Substr(%:bkp_dt,6,2))
+	%=(year, %Substr(%:bkp_dt,9,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Jul)) {
+	%=(month, 07)
+	%=(day, %Substr(%:bkp_dt,6,2))
+	%=(year, %Substr(%:bkp_dt,9,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Aug)) {
+	%=(month, 08)
+	%=(day, %Substr(%:bkp_dt,8,2))
+	%=(year, %Substr(%:bkp_dt,11,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Sep)) {
+	%=(month, 09
+	%=(day, %Substr(%:bkp_dt,11,2))
+	%=(year, %Substr(%:bkp_dt,14,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Oct)) {
+	%=(month, 10)
+	%=(day, %Substr(%:bkp_dt,9,2))
+	%=(year, %Substr(%:bkp_dt,12,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Nov)) {
+	%=(month, 11)
+	%=(day, %Substr(%:bkp_dt,10,2))
+	%=(year, %Substr(%:bkp_dt,13,4))}
+%If(%==(%Substr(%:bkp_dt,1,3),Dec)) {
+	%=(month, 12)
+	%=(day, %Substr(%:bkp_dt,10,2))
+	%=(year, %Substr(%:bkp_dt,13,4))}
+%=(datestring, %concat(%:year, _))
+%=(month, %concat(%:month, _))
+%=(datestring, %concat(%:datestring, %:month))
+%=(datestring, %concat(%:datestring, %:day))
+%ForEachEntity()) {create table %TableOwner.%TableName_BKP_%Substitute(%:datestring, " ",)
+as
+select *
+  from %TableOwner.%TableName
+;
+
+alter table %TableOwner.%TableName_bkp_%Substitute(%:datestring, " ",) owner to ab_bdc_batch1;
+
+}
