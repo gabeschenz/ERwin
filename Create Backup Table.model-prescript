@@ -68,6 +68,6 @@ select *
   from %TableOwner.%TableName
 ;
 
-alter table %TableOwner.%TableName_bkp_%Substitute(%:datestring, " ",) owner to ab_bdc_batch1;
+alter table %TableOwner.%TableName_bkp_%Substitute(%:datestring, " ",) owner to <some user>;
 
 }
