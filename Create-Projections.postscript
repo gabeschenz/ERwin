@@ -1,12 +1,12 @@
 %If (%TableOwner) {
-grant all privileges on table %TableOwner.%TableName to X;
+grant all privileges on table %TableOwner.%TableName to <some user>;
 create projection %TableOwner.%TableName_suprj (
        %Atts(", ",,    )
 )   as
 select %Atts(", ",,    )
   from %TableOwner.%TableName
 } %If (%Not(%TableOwner)) {
-grant all privileges on table %TableName to X;
+grant all privileges on table %TableName to <some user>;
 create projection %TableName_suprj (
        %Atts(", ",,    )
 )   as
