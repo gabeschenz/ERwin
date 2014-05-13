@@ -28,7 +28,7 @@ The following forward engineering templates are currently available:
     There is one table UDP which need to be created for use with this FET:
  	 - DistributionKey
  	 
-   This should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generatee accordingly.
+   This should have a default value of "random".  Otherwise provide the relevant column names in the appropriate places, and it should generate accordingly.
 
  - Vertica
  
@@ -37,5 +37,5 @@ The following forward engineering templates are currently available:
  	 - PartitionBy
  	 - SegmentedBy
  	 
-  Each of these should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generatee accordingly.
+  Each of these should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generate accordingly.
 
