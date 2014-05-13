@@ -1,0 +1,1527 @@
+SPItemBegin [keep format] = Alter Attribute
+/* DESCRIPTION: Alter an attribute during alter script generation.     */
+/* Assumes the context object is an attribute.                         */  
+/* Context Object is Attribute */  
+[ 
+    @if( IsModified )
+    {
+        PushTopLevelObject 
+        [   
+            [ 
+                [ Execute( "Generate " ObjectType ) ]
+            ] 
+        ] 
+        Pop 
+    }   
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Check_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Default
+/* DESCRIPTION: Alter a Default during alter script generation. */
+/* Assumes the context object is a Default.                     */
+[ 
+    /* For each referring oDefaultConstraintUsage object */ 
+    /* drop and recreate the entire table. */ 
+    ForEachReference( "Dependent_Objects_Ref" ) 
+    { 
+        [ 
+            Execute("Alter Default_Constraint_Usage") 
+        ] 
+    } 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Default_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Entity
+/* DESCRIPTION: Alter an entity during alter script generation. */
+/* Assumes the context object is an entity.                     */
+
+/* Process the  (EMXTypes::pPhysicalOrderList) property of the Entity. */ 
+[ 
+    IsPropertyModified("Physical_Columns_Order_Ref") 
+    [ 
+        FE::Option("ColumnPhysicalOrder") 
+        [ 
+            IsPropertyReordered("Physical_Columns_Order_Ref", "existing_only") 
+            [ 
+                Execute("Generate Entity") 
+            ] 
+        ] 
+    ] 
+]
+ 
+/* Process the  (EMXTypes::pColumnOrderList) property of the Entity. */ 
+[ 
+    IsPropertyModified("Columns_Order_Ref") 
+    [ 
+        FE::Option("!ColumnPhysicalOrder") 
+        IsPropertyReordered("Columns_Order_Ref", "existing_only") 
+        [ 
+            Execute("Generate Entity") 
+        ] 
+    ] 
+] 
+[ 
+    /* Is any property other than the Physical Order List,Column Order List or Attribute Order List  above was modified? */
+    @if(IsModified( "Physical_Columns_Order_Ref", "Columns_Order_Ref","Attributes_Order_Ref") ) 
+    {        
+        Execute("Generate Entity")      
+    } 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Generic Create Object
+/* DESCRIPTION: Create an object during alter script generation.    */
+/* The context can be any model object like entity, attribute etc.  */
+[
+    [   
+        Execute( "Create " ObjectType )
+        SetLocalFlag( "Template Found" )
+    ]
+    @ifnot ( IsLocalFlagSet ( "Template Found" ) )
+    { 
+        PushTopLevelObject
+        @if ( IsCreated )
+        {
+            Execute( "Create " ObjectType  )
+        }
+        @else
+        {
+            Execute( "Generate " ObjectType )
+        }
+        Pop
+    }
+    @else
+    {
+        ClearLocalFlag( "Template Found" )
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Generic Drop Object
+/* DESCRIPTION: Drop an object during alter script generation.      */
+/* The context can be any model object like entity, attribute etc.  */
+[ 
+    [ 
+        Execute( "Drop " ObjectType )
+        SetLocalFlag( "Template Found" )
+    ]    
+    @ifnot ( IsLocalFlagSet( "Template Found" ) )
+    {        
+        PushTopLevelObject
+        @if ( IsDeleted )
+        {
+            Execute( "Drop " ObjectType )
+        }
+        @else
+        {
+            Execute( "Generate " ObjectType )
+        }
+        Pop 
+    }
+    @else
+    {
+        ClearLocalFlag( "Template Found" )
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Generic Modify Object
+/* DESCRIPTION: Modify an object during alter script generation.    */
+/* The context can be any model object like entity, attribute etc.  */
+[
+    [ 
+        Execute( "Alter " ObjectType )
+        SetLocalFlag( "Template Found" )        
+    ]
+    @ifnot( IsLocalFlagSet( "Template Found" ) )
+    {
+        PushTopLevelObject
+        [ Execute( "Generate " ObjectType ) ]
+        Pop
+    }
+    @else 
+    {
+        ClearLocalFlag( "Template Found" )
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Key_Group
+/* DESCRIPTION: Alter Index during alter scrpit generation.            */
+/* Assumes the context object is an key group.                         */  
+[ 	
+    /* Is any other property other than Key Group Member Order List is modified */
+    @if( IsModified("Key_Group_Members_Order_Ref") )
+    { 
+            Execute("Generate Key_Group") 
+    }   
+] 
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Relationship
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Table Check Constraint Usage
+/* DESCRIPTION: Alter a Table Check Constraint Usage during alter script generation. */
+Execute("Generate Table Check Constraint Usage")
+SPItemEnd
+
+SPItemBegin [keep format] = Alter Validation_Rule
+/* DESCRIPTION: Alter a validation rule during alter script generation.   */
+/* Assumes the context object is a validation rule.                       */
+[ 
+    /* For each referring oCheckConstraintUsage object. */ 
+    ForEachReference("Dependent_Objects_Ref") 
+    { 
+        [ 
+            /* Push an Entity Or an Attribute */ 
+            /* If It is an Attribute Execute Alter Check Constraint Usage */ 
+            /* If It is an Entity Execute Alter Table Check Constraint Usage */ 
+            PushOwner 
+			Pop
+            @if( Equal(ObjectType,"Attribute") )
+            { 
+            	Execute("Alter Check_Constraint_Usage") 
+            } 
+            @else
+			{
+				@if( Equal(ObjectType,"Entity") )
+            	{ 
+                	Execute("Alter Table Check Constraint Usage") 
+            	}
+			}           
+        ] 
+    } 
+] 
+SPItemEnd
+
+SPItemBegin [keep format] = Clause: Define Column
+/* For Displaying code For Creation Of Columns */ 
+/* Columns.  We have to check sort order as some user don't bother  */ 
+/* with physical order and always generate using column order.  */
+
+ListSeparator( ",\n" ) 
+/* DESCRIPTION: Emit the column definition. */ 
+/* Assumes the context object is a column.*/ 
+"\t" Pad(  QuotedName  , 20 ) 
+" " Property( "Physical_Data_Type" )
+[" " EnumProperty( "Null_Option_Type" , "NULL" , "NOT NULL" ) ]
+
+/* If generation of column defaults is turned on, emit it.  */ 
+[   
+    FE::Option( "ColumnDefaultValue" ) 
+    ForEachOwnee( "Default_Constraint_Usage" ) 
+    {       
+        PushReference( "Default_Ref" ) 
+        [ 
+            ShouldGenerate " DEFAULT " 
+            FE::ExpandERwinMacro( "Server_Value" ) 
+        ] 
+        Pop        
+    } 
+
+    /* If generation of column check constraints is on, emit it. */ 
+    [ 
+        FE::Option( "ColumnCheckConstraint" ) 
+		[ 
+            " CONSTRAINT "
+            FE::Option( "ConstraintName" )                   
+            QuotedName 
+        ] 
+        <ForEachOwnee( "Check_Constraint_Usage" ) 
+        { 
+            [                
+                /* Use a propagating block so that we fail the entire thing if either   */ 
+                /* we can't retrieve the server value.                                  */                  
+                PushReference("Validation_Rule_Ref")
+				[
+					ShouldGenerate
+                	" CHECK ( " 
+                    FE::ExpandERwinMacro( "Server_Value" ) 
+                	" )" 
+				]
+                Pop                 
+            ] 
+        }>
+    ]   
+]
+Remove( "Column Order" )
+SPItemEnd
+
+SPItemBegin [keep format] = Clause: FKConstraint
+/* DESCRIPTION: Emit the FK constraint clause. */
+/* Assumes the context object is a key group.  */
+[
+    /* Generate it once            */
+    OnceForObject( "Constraint" )
+    
+    /* Are we naming the contraints? */
+    [   "CONSTRAINT "
+        FE::Option( "ConstraintName" )
+        
+        /* Suppress default relationship names for subtypes. */
+        [ 
+            PushReference( "Relationship_Ref" )
+            [ 
+                <Equal( QuotedName, "is_a" )
+                [ 
+                    PushReference( "Parent_Entity_Ref" )
+                    [ 
+                        Equal( ObjectType, "Subtype_Symbol" )
+                        SetLocalFlag( "Suppress Constraint Name","2" )
+                    ]
+                    Pop
+                ]>
+            ]
+            Pop
+        ]
+        
+        @ifnot( IsLocalFlagSet( "Suppress Constraint Name" ) )
+        {
+            QuotedNameThrough( "Relationship_Ref") " "
+        }
+        @else
+        {
+            ClearLocalFlag( "Suppress Constraint Name" )
+        }
+		/* Emit the key group type. */
+        "FOREIGN KEY " 
+    ] 
+
+    /* Emit the index members. */
+    "("
+    ForEachFKColumn
+    {
+        ListSeparator( ", " )
+        QuotedName
+    }
+    ")"
+
+    /* Emit the referenced table.   */
+    " REFERENCES "
+    PushReference( "Relationship_Ref" )
+    PushReference( "Parent_Entity_Ref" )
+    Switch( ObjectType )
+    {
+        /* If the parent is an entity, just emit the name.  */
+        Choose( "Entity" )
+        {
+            [ FE::OwnerOverride( "true" ) "." ] QuotedName " "
+        }
+        /* Subtypes, however, require a jump through the second relationship.   */
+        Choose( "Subtype_Symbol" )
+        {
+            ForEachReference( "Child_Relationships_Ref" )
+            {
+                PushReference( "Parent_Entity_Ref" )
+                [ FE::OwnerOverride( "true" ) "." ] QuotedName
+                Pop
+            }
+        }
+    }
+    Pop
+    Pop
+
+    /* Emit the columns.    */
+    "("
+    ForEachMigratingColumn
+    {
+        ListSeparator( ", " )
+        QuotedName
+    }
+    ")"  
+    [
+        PushReference("Relationship_Ref")
+        [
+            FE::Option("OnDeleteFKConstraint")
+            "\n\t\t" 
+            "ON DELETE "
+            LookupProperty( "Parent_Delete_Rule",
+                            "10005", "CASCADE") 
+        ]
+        Pop
+    ]           
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Clause: PKConstraint
+/* DESCRIPTION: Emit the PK constraint clause. */
+/* Assumes the context object is a key group.  */
+Equal( Left( Property( "Key_Group_Type" ), "2" ), "PK" )
+
+/* Primary Index property indicates that the key group must be */
+/* generated as PK index only. Make sure it is set to false.   */
+IsPropertyFalse( "Is_Primary_Index" )
+
+/* Generate it once           */
+OnceForObject( "Constraint" )
+"PRIMARY KEY "
+"("
+    <
+        ForEachReference( "Index_Members_Order_Ref" )
+        {
+            ListSeparator( "," )
+            QuotedName 
+        }
+    >
+")"
+SPItemEnd
+
+SPItemBegin [keep format] = Create Attribute
+/* DESCRIPTION: Alter table to add an attribute during alter script generation. */
+/* Assumes the context object is an attribute.                                  */
+[
+    PushOwner
+    @if ( Equal( ObjectType, "Entity" ) )
+    {
+        Pop    
+        /* Current context is an attribute. */
+        /* Determine if we can add column by altering table */
+        @if ( FE::Option( "AlterStatements" ) )
+        {
+            /* User requested alter statement. */
+            SetLocalFlag( "Use Alter To Add Column" )
+        }
+        @else
+        {            
+            [   
+                /* Make sure we are adding at the end. */
+                FE::IsLastColumn
+                 @ifnot ( IsPropertyEqual( "Null_Option_Type",  "1" ) )
+                {
+                    /* The column null option is NULL. */
+                    SetLocalFlag( "Use Alter To Add Column" )
+                }
+                @else
+                {
+                    /* The column null option is NOT NULL, check if there is a default. */
+                    [
+                        ForEachOwnee( "Default_Constraint_Usage" ) /* there is only one */
+                        {
+                            SetLocalFlag( "Use Alter To Add Column","1" )
+                        }                   
+                    ]
+                }
+            ]
+        }
+        @if ( IsLocalFlagSet ( "Use Alter To Add Column" ) )
+        {
+            FE::Bucket( "85" )
+            PushOwner
+            FE::RecordAlter
+            "ALTER TABLE " [ FE::OwnerOverride( "true" ) "." ] QuotedName
+            Pop
+            " (ADD " QuotedName "  " Property( "Physical_Data_Type") ")"
+            FE::EndOfStatement            
+            ClearLocalFlag( "Use Alter To Add Column" )
+        }
+        @else
+        {
+            /* We have to recreate the entity. */
+            PushOwner
+            [ Execute( "Generate Entity" ) ]
+            Pop
+        }
+    }
+    @elseif ( Equal( ObjectType, "View" ) )
+    {
+        /* It's a view attibute, recreate the view. */
+        Pop
+        PushTopLevelObject
+        Execute( "Generate " ObjectType )
+        Pop
+    }
+    @else
+    {
+        Pop
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Check_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Default_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Entity
+/* DESCRIPTION: Create an entity during schema generation.      */
+/* Assumes the context object is an entity.                     */
+[
+    ShouldGenerate
+    /* Make sure that Create Entity is executed only once. */
+    OnceForObject( "Create Entity" )
+    
+    /* Is the "TablePreScript" option turned on? */    
+    [ 
+        FE::Option( "TablePreScript" )
+        ForEachReference( "Script_Templates_Ref" )
+        {
+            [   
+                ShouldGenerate 
+                IsPropertyTrue( "Generate_As_Pre_Script" )
+                FE::Bucket( "90" )
+                FE::ExpandERwinMacro( "Template_Code" )
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]
+    
+    /* Is "CreateTable" option turned on? */
+    [ 
+        FE::Option( "CreateTable" )
+        
+        /* We need to set this flag to indicate to the internal post process */
+        /* that the entity has been created. Post process uses this flag to  */
+        /* determine whether alter statements have been superceded by this   */
+        /* create statement.                                                 */
+        FE::RecordCreate               
+        FE::Bucket( "90" )        
+        "CREATE "         
+        "TABLE "        
+        [FE::OwnerOverride( "true" ) "." ] 
+        QuotedName        
+        "\n("
+
+        /* Columns.  We have to check sort order as some user don't bother  */
+        /* with physical order and always generate using column order.  */
+        @if ( FE::Option( "ColumnPhysicalOrder" ) ) 
+        { 
+            Set( "Column Order", "Physical_Columns_Order_Ref" ) 
+        } 
+        @else 
+        { 
+            Set( "Column Order", "Columns_Order_Ref" ) 
+        } 
+        "\n" 
+        <ForEachReference( Value( "Column Order" ) ) 
+        { 
+            < Execute("Clause: Define Column") >       
+        }>      
+
+        /* Are we generating PK constraints in the CREATE? */
+        [ 
+            FE::Option( "PKConstraintInCreate" )
+            ForEachOwnee( "Key_Group", "Physical_Name" )
+            {
+                [ 
+                    Equal( Left( Property( "Key_Group_Type" ), "2" ), "PK" )
+                    ",\n\t" < Execute( "Clause: PKConstraint" ) >
+                ]
+            }
+        ]
+        
+        /* Are we generating FKs in the CREATE? */
+        [ 
+            FE::Option( "FKConstraintInCreate" )
+            ForEachOwnee( "Key_Group", "Physical_Name" )
+            {
+                [ 
+                    Equal( Left( Property( "Key_Group_Type" ), "2" ), "IF" )
+                    ",\n\t"
+                    < Execute( "Clause: FKConstraint" ) >
+                ]
+            }
+        ]
+
+        /* Table level check constraints in create.   */
+        [ 
+            FE::Option( "TableCheckConstraint" )
+            FE::Option("TableConstraintInCreate")
+            ForEachOwnee( "Check_Constraint_Usage" )
+            {
+                ",\n\t"
+                <
+                    [  
+                        "CONSTRAINT " 
+                        FE::Option( "ConstraintName" ) 
+                        QuotedName " " 
+                    ]
+                    [
+                        PushReference("Validation_Rule_Ref")
+                        "CHECK " 
+                        "( " FE::ExpandERwinMacro( "Server_Value" ) " )"
+                        Pop
+                    ]      
+                >         
+            }
+        ]
+        "\n) distribute on "
+
+		Switch( Property("Entity.Physical.DistributionKey") )
+		{
+				Choose ("Random")
+				{
+						"RANDOM"
+				}
+				Choose ("random")
+				{
+						"RANDOM"
+				}
+				Default
+				{
+					"("	Property("Entity.Physical.DistributionKey") ")"
+				}
+		}
+		""
+        FE::EndOfStatement
+    ]       
+     
+    /* Are we generating PKs in an ALTER?   */
+    [ 
+        ForEachOwnee("Key_Group", "Physical_Name" ) 
+        { 
+            [  
+                Equal ( Left( Property( "Key_Group_Type" ), "2" ) , "PK"  ) 
+                [
+                    FE::Bucket("90") 
+                    Execute("Create Key_Group") 
+                ] 
+                [
+                       
+    				FE::Option("PKConstraintInAlter")
+    				Equal( Left( Property( "Key_Group_Type" ), "2" ), "PK" )
+    				FE::Bucket( "90" )
+    				PushOwner
+    				"ALTER TABLE " [ FE::OwnerOverride( "true" ) "." ] QuotedName
+    				Pop
+    				"\nADD "
+    				< Execute( "Clause: PKConstraint" ) >
+    				FE::EndOfStatement      		
+                ]
+            ] 
+        } 
+    ]
+    
+    /* Are we generating FKs in an ALTER?   */
+    [ 
+        ForEachOwnee("Key_Group", "Physical_Name" ) 
+        { 
+            [  
+                Equal ( Left( Property( "Key_Group_Type" ), "2" ) , "IF"  )
+                [
+                    FE::Bucket("90") 
+                    Execute("Create Key_Group") 
+                ] 
+                [
+                    /* Are we generating FK constraints? */
+                     FE::Option("FKConstraintInAlter")
+        			Equal( Left( Property( "Key_Group_Type" ), "2" ), "IF" )
+        			/* Check if the relationship is set to generate. */
+        			SetLocalFlag( "FK Should Generate" )
+        			PushReference( "Relationship_Ref" )
+        			@if ( ShouldGenerate )
+        			{
+            			PushReference( "Parent_Entity_Ref" )
+            			@ifnot ( FE::IsEntityInSubjectArea )
+            			{
+                			ClearLocalFlag( "FK Should Generate", "2" )
+            			}
+            			Pop
+        			}
+        			@else
+        			{
+            			ClearLocalFlag( ""FK Should Generate"", "1" )
+        			}
+        			Pop
+        			@if ( IsLocalFlagSet( "FK Should Generate" ) )
+        			{
+            			FE::Bucket( "94" )
+            			PushOwner
+            			"ALTER TABLE " [ FE::OwnerOverride( "true" ) "." ] QuotedName
+            			Pop
+            			"\nADD "
+            			< Execute( "Clause: FKConstraint" ) >
+            			FE::EndOfStatement
+        			}    	
+                ]
+            ] 
+        } 
+    ]
+	
+	/* Are We Generating AK Or IE indexes  */
+	[ 
+        ForEachOwnee("Key_Group", "Physical_Name" ) 
+        { 
+            [  
+				NotEqual ( Left( Property( "Key_Group_Type" ), "2" ) , "PK"  )
+				[
+                	NotEqual ( Left( Property( "Key_Group_Type" ), "2" ) , "IF"  )
+                	[
+                    	FE::Bucket("90") 
+                    	Execute("Create Key_Group") 
+                	] 
+				]
+			]
+		}
+	]	
+        
+    /* Stored procedures.   */
+    [                       
+        FE::Bucket("105")       
+        ForEachReference("Stored_Procedures_Ref")
+        {
+            ShouldGenerate          
+            Equal( Property( "Type" ), "Table Level" )       
+            [
+                FE::Option("TableDropProcedure" )                           
+                Execute("Drop Stored_Procedure") 
+            ]
+            [
+                FE::Option("TableCreateProcedure" )         
+                Execute("Create Stored_Procedure")
+            ]           
+        }       
+    ]
+
+    
+    /* Table post script. */
+    [ 
+        FE::Option("TablePostScript") 
+        ForEachReference( "Script_Templates_Ref" )
+        {
+            [ 
+                ShouldGenerate 
+                IsPropertyFalse( "Generate_As_Pre_Script" )
+                FE::Bucket("90")
+                FE::ExpandERwinMacro( "Template_Code" )
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]  
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Key_Group
+/* DESCRIPTION: Create an index during schema generation.             */
+/* Assumes the context object is a key group.                         */
+[ 
+    /* Owner type is an entity. */
+    Set( "Owner Type", [ PushOwner ObjectType Pop ] )            
+    [ 
+        ShouldGenerate 
+        /* Make sure that the appropriate FE index option is selected. */
+        Set( "Key_Group_Type", Left( Property( "Key_Group_Type" ), "2" ) )
+        [ 
+            Equal( Value( "Owner Type" ), "Entity" )            
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "PK" ) 
+                FE::Option("CreatePKIndex") 
+                SetLocalFlag( "Should Generate" )
+
+            ] 
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "AK" ) 
+                FE::Option("CreateAKIndex") 
+                SetLocalFlag( "Should Generate" )
+            ] 
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "IF" ) 
+                FE::Option("CreateFKIndex") 
+                SetLocalFlag( "Should Generate" )
+            ] 
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "IE" ) 
+                FE::Option("CreateIEIndex") 
+                SetLocalFlag( "Should Generate" )
+            ] 
+        ]
+        Remove( "Key_Group_Type" ) 
+        Remove( "Owner Type" )
+        /* Check for duplicate indexes. */
+		@ifnot( Execute("Is Duplicate Index") )
+    	{        
+        	Set( "Key Group Members", Execute( "Key Group Members" ) )
+        	PushOwner        
+        	SetGlobalFlag( "IndexCreated" Value( "Key Group Members" )ObjectId )       
+        	Pop
+        	Remove( "Key Group Members" )	
+ 		}	
+		
+        @if ( IsLocalFlagSet( "Should Generate" ) )
+        {            
+            OnceForObject( "Create Key_Group" )
+            FE::RecordCreate        
+            FE::Bucket( "90" ) 
+            /* Regular indexes. */
+            "CREATE "
+            [ IsPropertyTrue( "Is_Unique" ) "UNIQUE " ]
+            "INDEX "  QuotedName " ON " 
+            PushOwner 
+            QuotedName 
+            Pop 
+            "\n(\n"
+            <ForEachReference( "Index_Members_Order_Ref" )
+            {
+                ListSeparator( "," )
+                "\t" < QuotedName >
+            }>
+            "\n)"
+            ClearLocalFlag( "Should Generate" )
+            FE::EndOfStatement
+        }
+    ]
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Stored_Procedure
+/* DESCRIPTION: Create Stored Procedure during schema generation.       */
+/* Assumes the context object is a Stored Procedure.                    */
+[
+    FE::ExpandERwinMacro("Template_Code") 
+    FE::EndOfStatement 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Create Table Check Constraint Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Create View
+/* DESCRIPTION: Create a view during schema generation.         */
+/* Assumes the context object is a view.                        */
+[ 
+    ShouldGenerate
+    OnceForObject( "Create View" )
+    [
+        /* Check Whether PreScript Option is Turned On? */
+        FE::Option("ViewPreScript") 
+        ForEachReference("Script_Templates_Ref")
+        {
+            [
+                ShouldGenerate 
+                IsPropertyTrue( "Generate_As_Pre_Script" )
+                Bucket("90") 
+                FE::ExpandERwinMacro("Template_Code")                
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]    
+    [
+        /* Is "CreateView" option turned on? */
+        FE::Option( "CreateView" )
+        FE::RecordCreate        
+        FE::Bucket( "90" )        
+        @if ( IsPropertyNotNull( "User_Defined_SQL" ) )
+        {
+            /* User defined view. Emit the view SQL. */
+            Property( "User_Defined_SQL" )
+			FE::EndOfStatement
+        }
+        @else
+        {
+            /* Erwin generated view. */
+            [                
+                "CREATE "                               
+                "VIEW "                
+                [ FE::OwnerOverride( "true" ) "." ] QuotedName
+                /* View columns. */
+                " ( "
+                <
+                    ForEachReference( "Physical_Columns_Order_Ref" )
+                    {
+                        ShouldGenerate
+                        ListSeparator( "," )
+                        QuotedName
+                    }
+                >
+                " ) AS " 
+                /* View select statement. */
+                "\n\tSELECT "
+                [ LookupProperty( "Select_Type", "2", " DISTINCT" ) ]            
+                <
+                    ForEachReference( "Physical_Columns_Order_Ref" )
+                    {
+                        ShouldGenerate
+                        ListSeparator( "," )
+                        [ 
+                            PushReference( "Parent_Relationship_Ref" )
+                            @if ( IsPropertyNotNull( "Alias_Name" ) )
+                            {
+                                Property( "Alias_Name" ) "."
+                            }
+                            @else
+                            {
+                                PushReference( "Parent_Entity_Ref" )
+                                [ 
+                                    [ FE::OwnerOverride( "true" ) "." ] 
+                                    QuotedName "."
+                                ]
+                                Pop
+                            }
+                            Pop
+                            PushReference( "Parent_Attribute_Ref" )
+                            [ 
+                                PushOwner
+                                @if ( Equal( ObjectType, "Entity" ) )
+                                {
+                                    /* Entity attribute. */
+                                    Pop
+                                    QuotedName
+                                }
+                                @else
+                                {
+                                    /* View Attribute. */
+                                    Pop
+                                    QuotedName
+                                }
+                            ]
+                            Pop
+                        ]
+                        [ Property( "View_Expression" ) ]
+                    }
+                >            
+                /* View select statement clauses. */
+                "\n\t\t" "FROM "
+                <
+                    ForEachReference( "Child_Relationships_Ref" )
+                    {
+                        ShouldGenerate
+                        ListSeparator( "," )
+                        [ 
+                            PushReference( "Parent_Entity_Ref" )
+                            [ 
+                                FE::OwnerOverride( "true" ) "." 
+                            ] 
+                            QuotedName
+                            Pop
+                        ]
+                        [ " " Property( "Alias_Name" ) ]
+                    }   
+                >           
+                [ "\n\t\t" "WHERE " Property( "Where_Clause" ) ]
+                [ "\n\t\t" "GROUP BY " Property( "Group_By_Clause") ]
+                [ "\n\t\t" "HAVING " Property( "Having_Clause" ) ]
+                [ Equal ( Property( "Restriction_Type", "no_translate" ), "1" ) "\n\t\tWITH CHECK OPTION" ]
+                [ "\n\t\t" "ORDER BY " Property( "Order_By_Clause" ) ]
+				FE::EndOfStatement
+            ]			
+        }        
+    ]  
+
+    /* Stored procedures.   */
+    [   
+        ForEachReference( "Stored_Procedures_Ref" )
+        {
+            /* Make sure they should generate and that they are a table-level procedure.    */
+            [ 
+                ShouldGenerate 
+                Equal( Property( "Type" ), "Table Level" )
+                FE::Bucket( "105" )
+                [
+                    FE::Option( "ViewDropStoredProcedure" )
+                    Execute( "Drop Stored_Procedure" )
+                ]               
+                [
+                    FE::Option( "ViewCreateStoredProcedure" )               
+                    Execute( "Create Stored_Procedure")
+                ]
+            ]
+        }
+    ]
+
+    /* View post script. */
+    [ FE::Option("ViewPostScript") 
+        ForEachReference( "Script_Templates_Ref" )
+        {
+            [ 
+                ShouldGenerate 
+                IsPropertyFalse( "Generate_As_Pre_Script" )
+                FE::Bucket("90")
+                FE::ExpandERwinMacro( "Template_Code" )
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]
+
+    /* During alter script generation, recreate dependent views. */
+    [ 
+        FE::IsAlterScriptGeneration
+        ForEachReference( "Parent_Relationships_Ref" )
+        {
+            PushReference( "Child_Entity_Ref" )
+            [ 
+                Equal( ObjectType, "View" )
+                @ifnot ( IsDeleted )
+                {
+                    Execute( "Create View" )
+                }
+            ]
+            Pop
+        }
+    ]   
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop Attribute
+/* DESCRIPTION: Drop an attribute during schema generation.     */
+/* Assumes the context object is an attribute.                  */ 
+[
+    PushOwner
+    @if( Equal( ObjectType, "Entity" ) )
+    {
+        Pop
+		SetGlobalFlag("Drop Attribute")
+        /* Current context is an attribute. */
+        FE::Bucket( "40" )
+        PushOwner
+        FE::RecordAlter 
+        "ALTER TABLE " [ FE::OwnerOverride( "true" ) "." ] QuotedName
+        Pop
+        " DROP " 
+        < Execute( "Previous Physical Name" ) >
+        FE::EndOfStatement
+    }   
+]
+SPItemEnd
+
+SPItemBegin = Drop Check_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin = Drop Default_Constraint_Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop Entity
+/* DESCRIPTION: Drop an entity during schema generation.        */
+/* Assumes the context object is an entity.                     */ 
+[   
+    ShouldGenerate 
+    @if( Equal(ObjectType,"Entity") )
+    {        
+        OnceForObject( "Drop Entity" )  
+        /* Drop owned indexes. */
+        [ 
+            FE::Bucket( "40" )
+            ForEachOwnee( "Key_Group", "Physical_Name" )
+            {
+                [   
+                    ShouldGenerate 
+                    Execute( "Drop Key_Group" )
+                ]
+            }
+        ]       
+        /* Is DropTable option turned on? */
+        [ 
+            FE::Option( "DropTable" )
+            [               
+            	FE::IsAlterScriptGeneration
+                /* If the table is deleted from the model, we drop all views dependant on this table. */                                   
+                ForEachReference( "Parent_Relationships_Ref" )
+                {
+                    [
+                        /* Exclude views created during this session as they are not in the DB yet. */                       
+                        PushReference( "Child_Entity_Ref" )
+                        [ 
+                            Equal( ObjectType, "View" )                            
+                            Execute( "Drop View" )
+                        ]
+                        Pop
+                                         
+                    ]
+                }               
+            ]
+                    
+            /* Now we are ready drop the table. */
+            FE::Bucket("40")
+            "DROP TABLE " 
+			[ < Execute( "Previous Owner" ) > "." ] 
+ 			< Execute( "Previous Physical Name" ) >
+            FE::EndOfStatement
+        ]
+	}    
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop Key_Group
+/* DESCRIPTION: Drop an index during alter script generation.       */
+/* Assumes the context object is a key group.                         */
+[       
+    [  
+        FE::IsAlterScriptGeneration		           
+        @if ( IsPropertyModified ( "Index_Members_Order_Ref" ) )
+        {
+            PushOldImage
+            @if ( IsPropertyNotNull( "Index_Members_Order_Ref" ) )
+            { 
+                SetLocalFlag( "Index Drop Option", "1" )
+            }
+            Pop
+        }
+        @else
+        {
+            @if ( IsPropertyNotNull( "Index_Members_Order_Ref" ) )
+            {
+                SetLocalFlag( "Index Drop Option" )
+            }
+        }        
+    ]      
+    [   
+        FE::IsSchemaGeneration  
+        ShouldGenerate 
+        SetLocalFlag( "Index Drop Option" )
+    ]
+    @if( IsLocalFlagSet( "Index Drop Option" ))
+    {
+        /* Make sure that the appropriate FE index option is selected. */
+        Set( "Key_Group_Type", Left( Property( "Key_Group_Type" ), "2" ) )
+        [                      
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "PK" ) 
+                FE::Option("DropPKIndex")           
+                SetLocalFlag( "Should Generate" )
+            ] 
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "AK" ) 
+                FE::Option("DropAKIndex") 
+                SetLocalFlag( "Should Generate" )
+            ] 
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "IF" ) 
+                FE::Option("DropFKIndex")       
+                SetLocalFlag( "Should Generate" )
+            ]               
+            [ 
+                Equal( Left( Property( "Key_Group_Type" ), "2" ), "IE" ) 
+                FE::Option("DropIEIndex") 
+                SetLocalFlag( "Should Generate" )
+            ]           
+        ]   
+        Remove( "Key_Group_Type" )         
+        ClearLocalFlag( "Index Drop Option" )
+    }
+    @if ( IsLocalFlagSet( "Should Generate" ) )
+    {                   
+        OnceForObject( "Drop Key_Group" )		
+        FE::Bucket( "38" ) 
+		@if( ShouldGenerate )
+		{
+        	/* Regular indexes. */
+        	"DROP"            
+        	" INDEX " [ < Execute( "Previous Owner" ) > "." ] 
+        	< Execute( "Previous Physical Name" ) >
+        	ClearLocalFlag( "Should Generate" )
+        	FE::EndOfStatement
+		}
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop Stored_Procedure
+/* DESCRIPTION: Drop a stored procedure during schema generation.        */ 
+/* Assumes the context object is a stored procedure.                     */ 
+[
+    FE::Bucket("100")
+    "DROP PROCEDURE "   
+    Execute( "Previous Name" )
+    FE::EndOfStatement
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop Table Check Constraint Usage
+[ /* No Operation*/ ]
+SPItemEnd
+
+SPItemBegin [keep format] = Drop View
+/* DESCRIPTION: Drop a view during schema generation.        */
+/* Assumes the context object is a view.                     */ 
+[ 
+    ShouldGenerate 
+    OnceForObject( "Drop View" )    
+    [        
+        FE::Option( "DropView" )                
+        /* Drop all dependent views first. */
+        [           
+            FE::IsAlterScriptGeneration
+            ForEachReference( "Parent_Relationships_Ref" )
+            {
+                [
+                    PushReference( "Child_Entity_Ref" )
+                    [ 
+                        Equal( ObjectType, "View" )
+                        Execute( "Drop View" )
+                    ]
+                    Pop
+                ]
+            }
+        ]               
+        [
+            /* Now we can drop this view. */
+            FE::Bucket( "40" )
+            "DROP VIEW " [ < Execute( "Previous Owner" ) > "." ] 
+            Execute( "Previous Name" )
+            FE::EndOfStatement
+        ]   
+      
+    ]   
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Attribute
+/* DESCRIPTION: Recreate an Attribute during alter script generation.    */
+/* Assumes the context object is an Attribute.                           */
+[
+    Execute("Drop Attribute")
+    Execute("Create Attribute")
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Entity
+/* DESCRIPTION: Recreate an entity during alter script generation.    */
+/* Assumes the context object is an entity.                           */
+[
+    OnceForObject("Generate Entity")
+    [
+        FE::IsSchemaGeneration      
+        [ShouldGenerate Execute("Drop Entity")]
+        [ShouldGenerate Execute("Create Entity")]
+    ]
+    [
+        FE::IsAlterScriptGeneration 
+        /* Add this entity in the data preservation list. */
+        [FE::ActivateDataPreservation()]
+    
+        /*Create the temp table and copy the data into it*/
+        [       
+            FE::DataPreservationOption("PreserveData")
+            FE::Bucket("20") "\n"
+            [
+                Execute("Table Has Insert Columns For Data Preservation")
+                [
+                    "CREATE TABLE " [ FE::OwnerOverride( "true" ) "." ] 
+                    FE::TempTable("Temporary")
+                    "\n" 
+                    "("
+                    ForEachReference("Columns_Order_Ref")
+                    {                       
+                        @ifnot(IsCreated)
+                        {
+                            ListSeparator(",\n")
+                            Execute("Previous Physical Name") " " Property("Physical_Data_Type")
+                        }
+                        
+                    }
+                    ")"
+                    FE::EndOfStatement
+                ]
+                [
+                    "SELECT "           
+                    ForEachReference("Columns_Order_Ref")
+                    {
+                        @ifnot(IsCreated)
+                        {
+                            ListSeparator(",\n")
+                            Execute("Previous Physical Name") 
+                        }
+                    }           
+                    " INTO " 
+                    [ FE::OwnerOverride( "true" ) "." ] 
+                    FE::TempTable("Temporary")
+                    " FROM " 
+                    [
+                        [Execute("Previous Owner")]
+                        [
+                            Equal(Execute("Previous Owner")," ")
+                            [ FE::OwnerOverride( "true" ) "." ]
+                        ]
+                    ] 
+                    Execute("Previous Physical Name")
+                    FE::EndOfStatement
+                ]
+            ]           
+        ]    
+        Execute("Drop Entity") 
+        Execute("Create Entity") 
+        
+        /*Insert the data from temp table to the new modified table*/
+        [ 
+            FE::DataPreservationOption( "PreserveData" )
+            FE::Bucket( "93" ) 
+            /* Check that table has insert columns for data preservation. */  
+			Execute("Table Has Insert Columns For Data Preservation")              
+            /* Prepare the insert query for the data preservation. */
+            "INSERT INTO " [ FE::OwnerOverride( "true" ) "." ] QuotedName
+            " ("
+            ForEachReference( "Columns_Order_Ref" )
+            {
+                NotEqual( ConversionFunction, "" )
+                ListSeparator( ", " )
+                QuotedName
+            }
+            ") SELECT "
+            ForEachReference( "Columns_Order_Ref" )
+            {
+                NotEqual( ConversionFunction, "" )
+                ListSeparator( ", " )
+                ConversionFunction
+            }
+            " FROM " [ OwnerOverride( "true" ) "." ]  FE::TempTable( "Temporary" )
+            [ " WHERE " FE::DataPreservationOption( "WhereClause" ) ]
+            FE::EndOfStatement
+            FE::DataPreservationOption("RegisterEntity")
+        ]
+        
+        /*Drop the temp table*/
+        [ 
+            FE::DataPreservationOption( "DropTempTable" )
+            FE::Bucket( "140" )  
+            /*  Check that table has insert columns for data preservation. */
+            Execute("Table Has Insert Columns For Data Preservation")
+            "DROP TABLE " [ FE::OwnerOverride( "true" ) "." ] FE::TempTable( "Temporary" )
+            FE::EndOfStatement          
+        ]
+    ]
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Key_Group
+/* DESCRIPTION: Recreate an index  during alter script generation.    */ 
+[    
+    Execute("Drop Key_Group") 
+    Execute("Create Key_Group") 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Model
+/* DESCRIPTION: Recreate model-level objects.                   */
+/* Assumes the context object is a model-level object like      */
+/* pre(post)-script and stored procedure.                       */
+[
+	Execute("Script Header")
+
+    /* Is the "ModelPreScript" option turned on?   */ 
+    [ 
+        FE::Option( "ModelPreScript" )
+        ForEachOwnee( "Script_Template", "Object_Order" )
+        {
+            [ ShouldGenerate IsPropertyTrue( "Generate_As_Pre_Script" )
+                FE::Bucket( "1" )
+                Equal( Property( "Type" ), "Model Level" )
+                FE::ExpandERwinMacro( "Template_Code" )
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]    
+    [ 
+        /* Model-level stored procedures. */
+        FE::IsSchemaGeneration
+        Bucket("95") 
+        ForEachOwnee("Stored_Procedure","Object_Order") 
+        { 
+            ShouldGenerate 
+            Equal( Property( "Type" ), "Model Level" )       
+            [
+                FE::Option("ModelDropProcedure") 
+                Execute("Drop Stored_Procedure")
+            ] 
+            [
+                FE::Option("ModelCreateProcedure") 
+                Execute("Create Stored_Procedure")
+            ] 
+        } 
+    ] 
+
+    /* Is the "TablePostScript" option turned on?   */ 
+    [ 
+        FE::Option( "ModelPostScript" )
+        ForEachOwnee( "Script_Template", "Object_Order" )
+        {
+            [ 
+                ShouldGenerate IsPropertyFalse( "Generate_As_Pre_Script" )
+                FE::Bucket( "120" )
+                Equal( Property( "Type" ), "Model Level" )
+                FE::ExpandERwinMacro( "Template_Code" )
+                FE::EndOfStatement("true")
+            ]
+        }
+    ]
+
+	Execute("Script Footer")
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Stored_Procedure
+/* DESCRIPTION: Recreate a stored procedure during alter script generation.    */
+/* Assumes the context object is a stored procedure.                            
+[ 
+    Execute("Drop Stored_Procedure") 
+    Execute("Create Stored_Procedure") 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate Table Check Constraint Usage
+/* DESCRIPTION: ReCreate a table level constraint for Validation Rule during alter script generation.   */[ 
+[
+    Execute("Drop Table Check Constraint Usage") 
+    Execute("Create Table Check Constraint Usage") 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Generate View
+/* DESCRIPTION: Recreate a  view during alter script generation.    */
+/* Assumes the context object is a  view.                           */
+[ 
+    ShouldGenerate 
+    Execute("Drop View")    
+    Execute("Create View") 
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Is Duplicate Index
+/* Check For Duplicate Indexes. */
+[
+    Set("KeyGroupMembers", [Execute("Key Group Members")])
+    Set("KeyGroupId", ObjectId)
+    [ PushOwner
+        [ IsGlobalFlagSet("Index Created" Value("KeyGroupMembers"))
+            ForEachOwnee("Key_Group", "Physical_Name" )
+            {
+                ShouldGenerate
+                @ifnot( Equal(ObjectId, Value("KeyGroupId")))
+				{
+                	Equal([ Execute("Key Group Members") ], Value("KeyGroupMembers"))
+            	}
+			}
+        ]
+        Pop
+    ]
+    Remove("KeyGroupId")
+    Remove("KeyGroupMembers")
+]
+
+
+SPItemEnd
+
+SPItemBegin [keep format] = Key Group Members
+/* Assumes that the context is a key group.    */
+[
+    ForEachReference( "Index_Members_Order_Ref" )
+    {
+        ListSeparator( "," )
+        QuotedName
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Previous Name
+/* DESCRIPTION: Fetch an old name of the object.               */
+/* Assumes the context object is any object.                   */
+[ 
+    FE::IsSchemaGeneration
+    QuotedName
+]
+[ 
+    FE::IsAlterScriptGeneration
+    @if ( IsPropertyModified( "Name" ) )
+    {
+        PushOldImage QuotedName Pop
+    }
+    @else
+    {
+        QuotedName
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Previous Owner
+/* DESCRIPTION: Fetch an old DB owner of the object.           */
+/* Assumes the context object is any object.                   */
+[ 
+    FE::Option( "SpecifyOwner" )
+    [ 
+        FE::IsSchemaGeneration
+        FE::OwnerOverride( "true" ) 
+    ]
+    [ 
+        FE::IsAlterScriptGeneration
+        /* By default, we are reading DB owner from the model. */
+        SetLocalFlag( "Default To Model" )
+    
+        /* Is DB owner overriden by the user?                            */
+        /* FE::OwnerOverride will emit the owner name if it's overriden. */
+        @if ( FE::OwnerOverride )
+        {
+            ClearLocalFlag( "Default To Model" )
+        }    
+        @if ( IsLocalFlagSet( "Default To Model" ) )
+        {
+            /* Fetch the DB owner from the model.                                  */
+            /* NOTE: some targets may use DB Owner property instead of Schema Ref. */
+            @if ( IsPropertyModified( "Schema_Name" ) )
+            {
+                PushOldImage
+                < Property( "Schema_Name" ) >   
+                Pop
+            }
+            @else
+            {
+                < Property( "Schema_Name" ) >
+            }
+            ClearLocalFlag( "Default To Model" )
+        }
+    ]
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Previous Physical Name
+/* DESCRIPTION: Fetch an old physical name of the object.      */
+/* Assumes the context object is any object.                   */
+[ 
+    FE::IsSchemaGeneration
+    QuotedName
+]
+[ 
+    FE::IsAlterScriptGeneration
+    @if ( IsPropertyModified( "Name", "Physical_Name" ) )
+    {
+        PushOldImage QuotedName Pop
+    }
+    @else
+    {
+        QuotedName
+    }
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Script Footer
+[
+	FE::Bucket( "9999" )
+	Fail
+	FE::EndOfStatement("true")
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Script Header
+[
+	FE::Bucket( "1" )
+	Fail
+	FE::EndOfStatement("true")
+]
+SPItemEnd
+
+SPItemBegin [keep format] = Table Has Insert Columns For Data Preservation
+/* Check Whether Table Has Insert Columns For Data Preservation */
+<[
+    ForEachReference("Columns_Order_Ref")
+    {
+        [ 
+            IsPropertyNull(IsCreated) "Suppress Column"
+            ListSeparator(", ")
+            QuotedName
+        ]
+    }
+]>
+SPItemEnd
+
