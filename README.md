@@ -14,7 +14,7 @@ Note that anything with a platform of `generic` should work with any targeted pl
 
 Currently, I have:
  - generic.model.prescript.create_backup:
- 	For each table in a forward engineering effort, this will create a backup of a given table as _schema.tablename\_BKP\_YYYY\_MM\_DD
+ 	For each table in a forward engineering effort, this will create a backup of a given table as _schema.tablename\_BKP\_YYYY\_MM\_DD_
  - vertica.table.prescript.drop_table:
     This will create a drop table statement in the form of _drop table if exists schema.tablename_.
  - vertica.table.postscript.create_projections:
@@ -24,14 +24,18 @@ Forward Engineering Templates:
 ------------------------------
 The following forward engineering templates are currently available:
  - Netezza
+ 
     There is one table UDP which need to be created for use with this FET:
  	 - DistributionKey
- 	This should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generatee accordingly.
+ 	 
+   This should have a default value of "random".  Otherwise provide the relevant column names in the appropriate places, and it should generate accordingly.
 
  - Vertica
- 	There are three table UDPs which need to be created for use with this FET:
+ 
+	There are three table UDPs which need to be created for use with this FET:
  	 - OrderBy
  	 - PartitionBy
  	 - SegmentedBy
- 	Each of these should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generatee accordingly.
+ 	 
+  Each of these should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generate accordingly.
 
