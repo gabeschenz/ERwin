@@ -24,13 +24,15 @@ Forward Engineering Templates:
 ------------------------------
 The following forward engineering templates are currently available:
  - Netezza
+ 
     There is one table UDP which need to be created for use with this FET:
  	 - DistributionKey
  	 
    This should have a default value of "None".  Otherwise provide the relevant column names in the appropriate places, and it should generatee accordingly.
 
  - Vertica
- 	There are three table UDPs which need to be created for use with this FET:
+ 
+	There are three table UDPs which need to be created for use with this FET:
  	 - OrderBy
  	 - PartitionBy
  	 - SegmentedBy
