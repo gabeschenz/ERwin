@@ -15,6 +15,8 @@ Note that anything with a platform of `generic` should work with any targeted pl
 Currently, I have:
  - generic.model.prescript.create_backup:
  	For each table in a forward engineering effort, this will create a backup of a given table as _schema.tablename\_BKP\_YYYY\_MM\_DD_
+ - generic.model.postscript.load\_from\_backup:
+ 	For each table in a forward engineering effort, this will generate an _INSERT_ statement to load the new table from the backup (created from the _create\_backup_ script).  Note that there is a `/**/` prior to the opening parenthesis in the column list.  This is due to the way ERwin interprets parentheses in scripts, and there is no escape character that I am aware of at this time.
  - vertica.table.prescript.drop_table:
     This will create a drop table statement in the form of _drop table if exists schema.tablename_.
  - vertica.table.postscript.create_projections:
